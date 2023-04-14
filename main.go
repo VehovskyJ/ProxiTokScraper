@@ -15,6 +15,17 @@ func main() {
 	domain := os.Args[1]
 	username := os.Args[2]
 
+	wd, err := os.Getwd()
+	if err != nil {
+		log.Fatalf("Failed to get current working directory: %s", err)
+	}
+
+	downloadDir := fmt.Sprintf("%s/tiktok/%s", wd, username)
+	err = os.MkdirAll(downloadDir, 0755)
+	if err != nil {
+		log.Fatalf("Failed to create download directory: %s", err)
+	}
+
 	pages, err := getAllPages(domain, username)
 	if err != nil {
 		log.Fatalf("Failed to fetch all pages: %s", err)
