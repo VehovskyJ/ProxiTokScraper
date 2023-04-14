@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/hashicorp/go-getter"
@@ -18,8 +19,16 @@ type media struct {
 }
 
 func main() {
-	domain := os.Args[1]
-	username := os.Args[2]
+	instance := flag.String("instance", "", "ProxiTok instance domain")
+	noWatermark := flag.Bool("no-watermark", false, "Disable downloading with watermark")
+
+	flag.Parse()
+
+	args := flag.Args()
+	if len(args) != 1 {
+		log.Fatal("Only one username can be specified")
+	}
+	username := args[0]
 
 	wd, err := os.Getwd()
 	if err != nil {
@@ -32,19 +41,19 @@ func main() {
 		log.Fatalf("Failed to create download directory: %s", err)
 	}
 
-	pages, err := getAllPages(domain, username)
+	pages, err := getAllPages(*instance, username)
 	if err != nil {
 		log.Fatalf("Failed to fetch all pages: %s", err)
 	}
 
 	for _, page := range pages {
-		videos, err := getAllVideoUrls(page)
+		videos, err := getAllVideoUrls(page, *noWatermark)
 		if err != nil {
 			log.Fatalf("Failed to download content: %s", err)
 		}
 
 		for _, video := range videos {
-			video.videoUrl = fmt.Sprintf("https://%s%s", domain, video.videoUrl)
+			video.videoUrl = fmt.Sprintf("https://%s%s", *instance, video.videoUrl)
 			err := downloadVideo(video, username, downloadDir)
 			if err != nil {
 				log.Printf("Failed to download video: %s", err)
@@ -100,7 +109,7 @@ func getAllPages(domain string, username string) ([]string, error) {
 	return urls, nil
 }
 
-func getAllVideoUrls(page string) ([]media, error) {
+func getAllVideoUrls(page string, noWatermark bool) ([]media, error) {
 	res, err := http.Get(page)
 	if err != nil {
 		return nil, err
@@ -127,8 +136,13 @@ func getAllVideoUrls(page string) ([]media, error) {
 		}
 		video.date = date.Format("20060102_150405")
 
-		src, _ := selection.Find("a.button.is-success:contains('No watermark')").Attr("href")
-		video.videoUrl = src
+		if noWatermark {
+			src, _ := selection.Find("a.button.is-success:contains('No watermark')").Attr("href")
+			video.videoUrl = src
+		} else {
+			src, _ := selection.Find("a.button.is-info:contains('Watermark')").Attr("href")
+			video.videoUrl = src
+		}
 
 		videos = append(videos, video)
 	})
