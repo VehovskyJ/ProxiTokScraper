@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
+	"github.com/hashicorp/go-getter"
 	"log"
 	"net/http"
 	"net/url"
@@ -32,9 +33,17 @@ func main() {
 	}
 
 	for _, page := range pages {
-		err := downloadFromPage(page)
+		videoUrls, err := getAllVideoUrls(page)
 		if err != nil {
 			log.Fatalf("Failed to download content: %s", err)
+		}
+
+		for _, url := range videoUrls {
+			video := fmt.Sprintf("https://%s%s", domain, url)
+			err := downloadVideo(video, downloadDir)
+			if err != nil {
+				log.Printf("Failed to download video: %s", err)
+			}
 		}
 	}
 }
@@ -111,4 +120,16 @@ func getAllVideoUrls(page string) ([]string, error) {
 	})
 
 	return urls, nil
+}
+
+func downloadVideo(videoUrl string, outputDirectory string) error {
+	destination := outputDirectory + "/video.mp4"
+
+	client := &getter.Client{
+		Src:  videoUrl,
+		Dst:  destination,
+		Mode: getter.ClientModeFile,
+	}
+
+	return client.Get()
 }
