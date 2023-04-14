@@ -12,6 +12,11 @@ import (
 	"time"
 )
 
+type media struct {
+	videoUrl string
+	date     string
+}
+
 func main() {
 	domain := os.Args[1]
 	username := os.Args[2]
@@ -33,14 +38,14 @@ func main() {
 	}
 
 	for _, page := range pages {
-		videoUrls, err := getAllVideoUrls(page)
+		videos, err := getAllVideoUrls(page)
 		if err != nil {
 			log.Fatalf("Failed to download content: %s", err)
 		}
 
-		for _, url := range videoUrls {
-			video := fmt.Sprintf("https://%s%s", domain, url)
-			err := downloadVideo(video, downloadDir)
+		for _, video := range videos {
+			video.videoUrl = fmt.Sprintf("https://%s%s", domain, video.videoUrl)
+			err := downloadVideo(video, username, downloadDir)
 			if err != nil {
 				log.Printf("Failed to download video: %s", err)
 			}
@@ -95,7 +100,7 @@ func getAllPages(domain string, username string) ([]string, error) {
 	return urls, nil
 }
 
-func getAllVideoUrls(page string) ([]string, error) {
+func getAllVideoUrls(page string) ([]media, error) {
 	res, err := http.Get(page)
 	if err != nil {
 		return nil, err
@@ -111,22 +116,32 @@ func getAllVideoUrls(page string) ([]string, error) {
 		return nil, err
 	}
 
-	var urls []string
-	doc.Find(".has-text-centered video source").Each(func(i int, selection *goquery.Selection) {
-		src, exists := selection.Attr("src")
-		if exists {
-			urls = append(urls, src)
+	var videos []media
+	doc.Find("div.media-content").Each(func(i int, selection *goquery.Selection) {
+		var video media
+
+		dateString, _ := selection.Find("small[title]").Attr("title")
+		date, err := time.Parse("Jan 02, 2006 15:04:05 UTC", dateString)
+		if err != nil {
+			return
 		}
+		video.date = date.Format("20060102_150405")
+
+		src, _ := selection.Find(".has-text-centered video source").Attr("src")
+		video.videoUrl = src
+
+		videos = append(videos, video)
 	})
 
-	return urls, nil
+	return videos, nil
 }
 
-func downloadVideo(videoUrl string, outputDirectory string) error {
-	destination := outputDirectory + "/video.mp4"
+func downloadVideo(video media, username string, outputDirectory string) error {
+	log.Printf("Downlaoding video %s_%s.mp4", username, video.date)
+	destination := fmt.Sprintf("%s/%s_%s.mp4", outputDirectory, username, video.date)
 
 	client := &getter.Client{
-		Src:  videoUrl,
+		Src:  video.videoUrl,
 		Dst:  destination,
 		Mode: getter.ClientModeFile,
 	}
