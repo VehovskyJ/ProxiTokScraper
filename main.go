@@ -140,11 +140,16 @@ func downloadVideo(video media, username string, outputDirectory string) error {
 	log.Printf("Downlaoding video %s_%s.mp4", username, video.date)
 	destination := fmt.Sprintf("%s/%s_%s.mp4", outputDirectory, username, video.date)
 
-	client := &getter.Client{
-		Src:  video.videoUrl,
-		Dst:  destination,
-		Mode: getter.ClientModeFile,
+	if _, err := os.Stat(destination); os.IsNotExist(err) {
+		client := &getter.Client{
+			Src:  video.videoUrl,
+			Dst:  destination,
+			Mode: getter.ClientModeFile,
+		}
+
+		return client.Get()
 	}
 
-	return client.Get()
+	log.Println("File already exists")
+	return nil
 }
