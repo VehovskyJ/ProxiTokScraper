@@ -20,6 +20,12 @@ func main() {
 		log.Fatalf("Failed to fetch all pages: %s", err)
 	}
 
+	for _, page := range pages {
+		err := downloadFromPage(page)
+		if err != nil {
+			log.Fatalf("Failed to download content: %s", err)
+		}
+	}
 }
 
 func getAllPages(domain string, username string) ([]string, error) {
@@ -67,4 +73,30 @@ func getAllPages(domain string, username string) ([]string, error) {
 	}
 
 	return urls, nil
+}
+
+func downloadFromPage(page string) error {
+	for {
+		res, err := http.Get(page)
+		if err != nil {
+			return err
+		}
+		defer res.Body.Close()
+
+		if res.StatusCode != 200 {
+			log.Println()
+		}
+
+		doc, err := goquery.NewDocumentFromReader(res.Body)
+		if err != nil {
+			return err
+		}
+
+		doc.Find(".has-text-centered video source").Each(func(i int, selection *goquery.Selection) {
+			src, exists := selection.Attr("src")
+			if exists {
+				_ = src
+			}
+		})
+	}
 }
