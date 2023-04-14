@@ -127,7 +127,7 @@ func getAllVideoUrls(page string) ([]media, error) {
 		}
 		video.date = date.Format("20060102_150405")
 
-		src, _ := selection.Find(".has-text-centered video source").Attr("src")
+		src, _ := selection.Find("a.button.is-success:contains('No watermark')").Attr("href")
 		video.videoUrl = src
 
 		videos = append(videos, video)
