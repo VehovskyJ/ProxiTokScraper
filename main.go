@@ -86,28 +86,29 @@ func getAllPages(domain string, username string) ([]string, error) {
 	return urls, nil
 }
 
-func downloadFromPage(page string) error {
-	for {
-		res, err := http.Get(page)
-		if err != nil {
-			return err
-		}
-		defer res.Body.Close()
-
-		if res.StatusCode != 200 {
-			log.Println()
-		}
-
-		doc, err := goquery.NewDocumentFromReader(res.Body)
-		if err != nil {
-			return err
-		}
-
-		doc.Find(".has-text-centered video source").Each(func(i int, selection *goquery.Selection) {
-			src, exists := selection.Attr("src")
-			if exists {
-				_ = src
-			}
-		})
+func getAllVideoUrls(page string) ([]string, error) {
+	res, err := http.Get(page)
+	if err != nil {
+		return nil, err
 	}
+	defer res.Body.Close()
+
+	if res.StatusCode != 200 {
+		log.Println()
+	}
+
+	doc, err := goquery.NewDocumentFromReader(res.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var urls []string
+	doc.Find(".has-text-centered video source").Each(func(i int, selection *goquery.Selection) {
+		src, exists := selection.Attr("src")
+		if exists {
+			urls = append(urls, src)
+		}
+	})
+
+	return urls, nil
 }
