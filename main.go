@@ -89,7 +89,7 @@ func getAllPages(domain string, username string) ([]string, error) {
 
 		urls = append(urls, proxitokUrl)
 		log.Println(proxitokUrl)
-		time.Sleep(time.Second)
+		time.Sleep(300 * time.Millisecond)
 	}
 
 	return urls, nil
