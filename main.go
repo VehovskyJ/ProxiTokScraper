@@ -14,6 +14,8 @@ import (
 	"time"
 )
 
+const SLEEP_TIME = 500
+
 type media struct {
 	videoUrl string
 	date     string
@@ -60,6 +62,7 @@ func main() {
 			if err != nil {
 				log.Printf("Failed to download video: %s", err)
 			}
+			time.Sleep(SLEEP_TIME * time.Millisecond)
 		}
 	}
 }
@@ -105,7 +108,7 @@ func getAllPages(domain string, username string) ([]string, error) {
 
 		urls = append(urls, proxitokUrl)
 		log.Println(proxitokUrl)
-		time.Sleep(300 * time.Millisecond)
+		time.Sleep(SLEEP_TIME * time.Millisecond)
 	}
 
 	return urls, nil
