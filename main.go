@@ -73,6 +73,10 @@ func getAllPages(domain string, username string) ([]string, error) {
 
 	for {
 		proxitokUrl := fmt.Sprintf("https://%s/%s/?cursor=%s", domain, username, cursor)
+
+		urls = append(urls, proxitokUrl)
+		log.Println(proxitokUrl)
+
 		res, err := http.Get(proxitokUrl)
 		if err != nil {
 			return urls, err
@@ -88,26 +92,33 @@ func getAllPages(domain string, username string) ([]string, error) {
 			return urls, err
 		}
 
+		// Finds the next button and extracts the url of the cursor
 		nextButton := doc.Find(".buttons > a.button.is-success").First()
-		nextCursor := nextButton.AttrOr("href", "")
+		cursorUrl := nextButton.AttrOr("href", "")
 
-		if nextCursor == "" {
+		// If the cursor is empty break the loop
+		if cursorUrl == "" {
 			break
 		}
 
-		u, err := url.Parse(nextCursor)
+		u, err := url.Parse(cursorUrl)
 		if err != nil {
 			return urls, err
 		}
 
-		cursor = u.Query().Get("cursor")
+		// Extracts the new cursor form the cursor url
+		newCursor := u.Query().Get("cursor")
 
-		if cursor == "0" {
+		/*
+		 * If the new cursor is equal to zero or to the old cursor break the loop
+		 * Comparing the new cursor to the old one is important since some instances
+		 * of proxitok are buggy and return the old cursor which causes infinite loop
+		 */
+		if newCursor == "0" || newCursor == cursor {
 			break
 		}
 
-		urls = append(urls, proxitokUrl)
-		log.Println(proxitokUrl)
+		cursor = newCursor
 		time.Sleep(SLEEP_TIME * time.Millisecond)
 	}
 
