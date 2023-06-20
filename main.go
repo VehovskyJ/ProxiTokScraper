@@ -140,7 +140,6 @@ func getAllVideoUrls(page string, noWatermark bool) ([]media, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	var videos []media
 	doc.Find("div.media-content").Each(func(i int, selection *goquery.Selection) {
 		var video media
@@ -153,11 +152,9 @@ func getAllVideoUrls(page string, noWatermark bool) ([]media, error) {
 		video.date = date.Format("20060102_150405")
 
 		if noWatermark {
-			src, _ := selection.Find("a.button.is-success:contains('No watermark')").Attr("href")
-			video.videoUrl = src
+			video.videoUrl, _ = selection.Find("a.button.is-success:contains('No watermark')").Attr("href")
 		} else {
-			src, _ := selection.Find("a.button.is-info:contains('Watermark')").Attr("href")
-			video.videoUrl = src
+			video.videoUrl, _ = selection.Find("a.button.is-info:contains('Watermark')").Attr("href")
 		}
 
 		videos = append(videos, video)
