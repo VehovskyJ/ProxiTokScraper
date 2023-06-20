@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
@@ -12,6 +13,8 @@ import (
 	"os"
 	"time"
 )
+
+const SLEEP_TIME = 500
 
 type media struct {
 	videoUrl string
@@ -43,13 +46,14 @@ func main() {
 
 	pages, err := getAllPages(*instance, username)
 	if err != nil {
-		log.Fatalf("Failed to fetch all pages: %s", err)
+		log.Printf("Failed to fetch all pages: %s", err)
+		log.Printf("Some contect may be missing or incomplete")
 	}
 
 	for _, page := range pages {
 		videos, err := getAllVideoUrls(page, *noWatermark)
 		if err != nil {
-			log.Fatalf("Failed to download content: %s", err)
+			log.Printf("Failed to fetch page contents: %s", err)
 		}
 
 		for _, video := range videos {
@@ -58,6 +62,7 @@ func main() {
 			if err != nil {
 				log.Printf("Failed to download video: %s", err)
 			}
+			time.Sleep(SLEEP_TIME * time.Millisecond)
 		}
 	}
 }
@@ -68,42 +73,53 @@ func getAllPages(domain string, username string) ([]string, error) {
 
 	for {
 		proxitokUrl := fmt.Sprintf("https://%s/%s/?cursor=%s", domain, username, cursor)
+
+		urls = append(urls, proxitokUrl)
+		log.Println(proxitokUrl)
+
 		res, err := http.Get(proxitokUrl)
 		if err != nil {
-			return nil, err
+			return urls, err
 		}
 		defer res.Body.Close()
 
 		if res.StatusCode != 200 {
-			log.Printf("Status code error: %s", res.Status)
+			return urls, errors.New(fmt.Sprintf("status code error %s", res.Status))
 		}
 
 		doc, err := goquery.NewDocumentFromReader(res.Body)
 		if err != nil {
-			return nil, err
+			return urls, err
 		}
 
+		// Finds the next button and extracts the url of the cursor
 		nextButton := doc.Find(".buttons > a.button.is-success").First()
-		nextCursor := nextButton.AttrOr("href", "")
+		cursorUrl := nextButton.AttrOr("href", "")
 
-		if nextCursor == "" {
+		// If the cursor is empty break the loop
+		if cursorUrl == "" {
 			break
 		}
 
-		u, err := url.Parse(nextCursor)
+		u, err := url.Parse(cursorUrl)
 		if err != nil {
-			return nil, err
+			return urls, err
 		}
 
-		cursor = u.Query().Get("cursor")
+		// Extracts the new cursor form the cursor url
+		newCursor := u.Query().Get("cursor")
 
-		if cursor == "0" {
+		/*
+		 * If the new cursor is equal to zero or to the old cursor break the loop
+		 * Comparing the new cursor to the old one is important since some instances
+		 * of proxitok are buggy and return the old cursor which causes infinite loop
+		 */
+		if newCursor == "0" || newCursor == cursor {
 			break
 		}
 
-		urls = append(urls, proxitokUrl)
-		log.Println(proxitokUrl)
-		time.Sleep(300 * time.Millisecond)
+		cursor = newCursor
+		time.Sleep(SLEEP_TIME * time.Millisecond)
 	}
 
 	return urls, nil
@@ -117,14 +133,13 @@ func getAllVideoUrls(page string, noWatermark bool) ([]media, error) {
 	defer res.Body.Close()
 
 	if res.StatusCode != 200 {
-		log.Println()
+		return nil, errors.New(fmt.Sprintf("status code error %s", res.Status))
 	}
 
 	doc, err := goquery.NewDocumentFromReader(res.Body)
 	if err != nil {
 		return nil, err
 	}
-
 	var videos []media
 	doc.Find("div.media-content").Each(func(i int, selection *goquery.Selection) {
 		var video media
@@ -137,11 +152,9 @@ func getAllVideoUrls(page string, noWatermark bool) ([]media, error) {
 		video.date = date.Format("20060102_150405")
 
 		if noWatermark {
-			src, _ := selection.Find("a.button.is-success:contains('No watermark')").Attr("href")
-			video.videoUrl = src
+			video.videoUrl, _ = selection.Find("a.button.is-success:contains('No watermark')").Attr("href")
 		} else {
-			src, _ := selection.Find("a.button.is-info:contains('Watermark')").Attr("href")
-			video.videoUrl = src
+			video.videoUrl, _ = selection.Find("a.button.is-info:contains('Watermark')").Attr("href")
 		}
 
 		videos = append(videos, video)
